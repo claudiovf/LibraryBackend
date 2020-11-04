@@ -103,7 +103,11 @@ const resolvers = {
       authorCount: () => Author.collection.countDocuments(),
       allBooks: async (root, args) => {
 
+
           if(args.genre) {
+            if(args.genre === 'All Genres') {
+                return Book.find({}).populate('author')
+              }
               return await Book.find({ genres: args.genre  }).populate('author')
           }
 
@@ -119,7 +123,7 @@ const resolvers = {
 
           return users
       },
-      me: async (root, args, {currentUser}) => {
+      me: (root, args, {currentUser}) => {
           return currentUser
       }
       
