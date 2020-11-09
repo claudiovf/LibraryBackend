@@ -1,4 +1,12 @@
-const { ApolloServer, gql, UserInputError, AuthenticationError } = require('apollo-server')
+const { 
+    ApolloServer, 
+    gql, 
+    UserInputError, 
+    AuthenticationError, 
+    PubSub
+} = require('apollo-server')
+const pubsub = new PubSub()
+
 const mongoose = require('mongoose')
 const Author = require('./models/author')
 const Book = require('./models/book')
@@ -94,6 +102,10 @@ const typeDefs = gql`
         deleteAuthors: [String]
     }
 
+    type Subscription {
+        bookAdded: Book!
+    }
+
 
 `
 
@@ -130,7 +142,11 @@ const resolvers = {
   },                                                         
   Author: {
       bookCount: async (root) => {
-            const authorBooks = await Book.find({ author: root._id })
+            const authorBooks = await Book.find({ 
+                author: {
+                    $in: [root._id] 
+                }
+            })
 
           return authorBooks.length
       }
@@ -154,6 +170,8 @@ const resolvers = {
                 })
             }
 
+            pubsub.publish('BOOK_ADDED', { bookAdded: book })
+            
             return book
         } else {
             const author = new Author({ name: args.author })
@@ -169,6 +187,8 @@ const resolvers = {
                     invalidArgs: args,
                 })
             }
+
+            pubsub.publish('BOOK_ADDED', { bookAdded: book })
 
             return book
         }
@@ -230,6 +250,11 @@ const resolvers = {
 
       deleteBooks: () => Book.deleteMany({}),
       deleteAuthors: () => Author.deleteMany({})
+  },
+  Subscription: {
+      bookAdded: {
+        subscribe: () => pubsub.asyncIterator(['BOOK_ADDED'])
+      }
   }
 }
 
@@ -250,6 +275,7 @@ const server = new ApolloServer({
   }
 })
 
-server.listen().then(({ url }) => {
+server.listen().then(({ url, subscriptionsUrl }) => {
   console.log(`Server ready at ${url}`)
+  console.log(`Subscription ready at ${subscriptionsUrl}`)
 })
